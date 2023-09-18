@@ -1,0 +1,8 @@
+{
+  "user_pref": [
+    {
+      "API_KEY": "",
+      "DEFAULT_BACKEND":"ibmq_qasm_simulator"
+    }
+  ]
+}
