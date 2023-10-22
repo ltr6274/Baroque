@@ -1,5 +1,5 @@
 """
-BAROQUE - Blueprint for Assembling Runtime Operations for QUantum Experiments
+BAROQUE - Blueprint for Assembling Runtime Operations for Quantum Experiments
 
 BAROQUE_IBM_Interface.py
 
@@ -15,15 +15,17 @@ IBM functions into simpler ones for the user.
 import networkx as nx
 from qiskit.providers import backend
 from qiskit.transpiler import CouplingMap
-from qiskit import IBMQ
-from qiskit.providers.aer.noise import NoiseModel
+from qiskit import IBMQ, Aer
+from qiskit_aer.noise import NoiseModel
+
+import BAROQUE_Common_Constants as CommConsts
 
 
 class IbmqInterfaceContainer:
     """
     CLASS - IbmqInterfaceContainer
 
-    The IBMQ Interface Container is a class whose's objects store the provider, backend, configuration, and pro
+    The IBMQ Interface Container is a class whose objects store the provider, backend, configuration, and pro
     """
     def __init__(self, ibmq_api_key, backend_name):
         self.provider = self.getProviderIBMQ(ibmq_api_key)
@@ -33,8 +35,12 @@ class IbmqInterfaceContainer:
         self.coupling_list = self.getCouplingListIBMQ(self.configuration)
         self.coupling_map = self.getCouplingMapIBMQ(self.configuration)
         self.basis_gates = self.getBasisGatesIBMQ(self.configuration)
-        self.cx_error_map = self.extractCxErrorMap(self.configuration, self.properties, self.coupling_list)
-        self.noise_model = self.getBackendNoiseModelIBMQ(self.backend)
+        if backend_name in CommConsts.hardware:
+            self.cx_error_map = self.extractCxErrorMap(self.configuration, self.properties, self.coupling_list)
+            self.noise_model = self.getBackendNoiseModelIBMQ(self.backend)
+        else:
+            self.cx_error_map = None
+            self.noise_model = None
 
     @staticmethod
     def getProviderIBMQ(ibm_api_key):

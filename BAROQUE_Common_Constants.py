@@ -46,6 +46,11 @@ QUITO_SYS_STR = "ibmq_quito"
 BELEM_SYS_STR = "ibmq_belem"
 LIMA_SYS_STR = "ibmq_lima"
 
+hardware = {WASHINGTON_SYS_STR, KYIV_SYS_STR, ITHACA_SYS_STR, KOLKATA_SYS_STR, MONTREAL_SYS_STR, MUMBAI_SYS_STR, CAIRO_SYS_STR,
+            AUCKLAND_SYS_STR, HANOI_SYS_STR,GENEVA_SYS_STR, TORONTO_SYS_STR, PEEKSKILL_SYS_STR, GUADALUPE_SYS_STR,
+            PERTH_SYS_STR, LAGOS_SYS_STR, NAIROBI_SYS_STR, OSLO_SYS_STR, JAKARTA_SYS_STR, MANILA_SYS_STR,
+            QUITO_SYS_STR, BELEM_SYS_STR, LIMA_SYS_STR}
+
 # IBM Quantum Simulator Backend Strings
 STABILIZER_SIM = "simulator_stabilizer"
 MPS_SIM = "simulator_mps"
@@ -55,6 +60,7 @@ STATEVECTOR_SIM = "simulator_statevector"
 AER_SIM = "aer_simulator"
 AER_QASM_SIM = "qasm_simulator"
 
+simulators = {STABILIZER_SIM, MPS_SIM, EXT_STABILIZER_SIM, QASM_SIM, STATEVECTOR_SIM, AER_SIM, AER_QASM_SIM}
 # IBM Qiskit Gate String Representations for Common Gates
 # Below gates are the common IBM system basis gates
 CONTROL_NOT_GATE = "cx"

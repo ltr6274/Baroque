@@ -1,8 +1,8 @@
 {
-  "user_pref": [
-    {
-      "API_KEY": "",
-      "DEFAULT_BACKEND":"ibmq_qasm_simulator"
-    }
-  ]
+  "API_KEY": "",
+  "DEFAULT_INPUT_FILE": "",
+  "DEFAULT_COMPARE_FILE": "",
+  "DEFAULT_OUTPUT_FILE": "",
+  "DEFAULT_BACKEND": "",
+  "DEFAULT_ROUTING": ""
 }
