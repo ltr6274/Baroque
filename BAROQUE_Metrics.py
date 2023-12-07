@@ -1,11 +1,11 @@
 """
-BAROQUE - Blueprint for Assembling Runtime Operations for QUantum Experiments
+BAROQUE - Blueprint for Assembling Runtime Operations for Quantum Experiments
 
 BAROQUE_Metrics.py
 
-Author - Harrison Barnes
+Author - Harrison Barnes, Lucas Romero
 College - Rochester Institute of Technology, Kate Gleason College of Engineering
-Email - hjjbarnes@gmail.com
+Email - hjjbarnes@gmail.com lucasr2125@gmail.com
 
 BAROQUE_Metrics.py offers a range of functions that encapsulate common metrics used when testing quantum circuits,
 algorithms, optimizations, and more. There are three goals of BAROQUE_Metrics.py:
@@ -35,18 +35,6 @@ from qiskit.compiler import transpile
 from qiskit.transpiler.passes.routing import *
 
 
-def metricDiffCNOT(circuit_a, circuit_b):
-    """
-    Function - metricDiffCNOT
-    Inputs:
-        circuit_a, circuit_b - Qiskit QuantumCircuits being compared
-
-    Outputs: Difference in CNOT count between circuit_a and circuit_b
-    """
-    # Get CNOT counts for both circuits and returns how many more CNOTs exist in circuit_b than circuit_a
-    return metricCountCNOT(circuit_b) - metricCountCNOT(circuit_a)
-
-
 def metricDiffGate(circuit_a, circuit_b, gate_string):
     """
     Function - metricDiffCNOT
@@ -59,17 +47,22 @@ def metricDiffGate(circuit_a, circuit_b, gate_string):
     # Get gate counts for both circuits and return how many more gates exist in circuit_b than circuit_a
     return metricCountGate(circuit_b, gate_string) - metricCountGate(circuit_a, gate_string)
 
-
-def metricCountCNOT(circuit):
+def metricRatioGate(circuit_a, circuit_b, gate_string):
     """
-    Function - metricCountCNOT
+    Function - metricRatioGate
     Inputs:
-        circuit - Qiskit QuantumCircuit
+        circuit_a, circuit_b - Qiskit QuantumCircuits being compared
+        gate_string - a string representation of the gate provided by Qiskit. EX: CNOT = "cx"
 
-    Outputs: The number of CNOT gates in the provided circuit
+    Outputs: Difference in gate count between circuit_a and circuit_b
     """
-    # Returns the CNOT count of the circuit
-    return metricCountGate(circuit, CommConst.CONTROL_NOT_GATE)
+    # Get gate counts for both circuits and return how many more gates exist in circuit_b than circuit_a
+    metricA = metricCountGate(circuit_a, gate_string)
+    metricB = metricCountGate(circuit_b, gate_string)
+    if metricA != 0:
+        return metricCountGate(circuit_b, gate_string)/metricCountGate(circuit_a, gate_string)
+    else:
+        return "UNDEFINED: DIVISION BY ZERO"
 
 
 def metricCountGate(circuit, gate_string):

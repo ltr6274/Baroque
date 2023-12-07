@@ -30,193 +30,21 @@ from pathlib import Path
 # BAROQUE Imports
 import BAROQUE_Metrics as Metrics
 import BAROQUE_IBM_Interface as IbmInterface
+from Print_Metrics import *
 import BAROQUE_Common_Constants as CommConst
 import BAROQUE_Herr_Wrapper as HerrWrap
-
-HELP_MSG = "Welcome to Baroque!\n" \
-           "Here's how you use it:\n" \
-           "\tAdd Baroque to your global path for ease of use.\n" \
-           "\tHere's the generic outline of a Baroque command:\n\n" \
-           "\tBaroque -i [input_file] -c [compare_file] -o [output_file] -b [backend] -r [routing_algorithm] " \
-           "--<metric_test>\n\n" \
-           "\tOut of all the arguments there, only input file and backend are necessary.\n" \
-           "\tHowever, most arguments can have default values be specified.\n\n" \
-           "Additional Commands:\n" \
-           "\tYou can use any of these commands after the 'Baroque' keyword:\n" \
-           "\t--set_default_<something> <value>\n" \
-           "\t\tThis is how you set default values.\n" \
-           "\t\tWhere <something> is replaced by input_file, compare_file, output_file, backend, or routing.\n" \
-           "\t--show_defaults\n" \
-           "\t\tThis will print all defaults you have set.\n" \
-           "\t--reset_all\n" \
-           "\t\tThis will reset all default values you have set.\n" \
-           "\t--set_API_key <key>\n" \
-           "\t\tUse this to set the API key you will use for using IBMQ simulators and machines.\n\n" \
-           "Available Metrics: \n" \
-           "\t--metricCountGate=<gate string>\n" \
-           "\t\tCount the occurrences of a specific gate.\n" \
-           "\t--metricDiffGate=<gate string>\n" \
-           "\t\tFind the difference in occurrences of a specific between two circuits.\n" \
-           "\t--metricDiffDepth\n" \
-           "\t\tFind the difference in depth between two circuits.\n" \
-           "\t--metricCircuitDepth\n" \
-           "\t\tFind the depth of the circuit.\n" \
-           "\t--metricRaw\n" \
-           "\t\tDisplay raw data about the simulation.\n" \
-           "\t\n" \
-           "\t(gate strings have been defined as per IBM standards)\n" \
-           "\nGood luck :3"
 
 # metric strings
 COUNT_GATE = "count_gate"
 DIFF_GATE = "diff_gate"
+RAT_GATE = "ratio_gate"
 DIFF_DEPTH = "diff_depth"
 CIRCUIT_DEPTH = "circuit_depth"
 RAW = "raw"
 
-
-# TODO handle more than one input circuit (2)
-# TODO implement all the metrics available
-#
-
-
-def show_defaults(user_pref):
-    """
-    Prints out the json defaults. Specific to this json.
-    """
-    print("DEFAULTS:")
-    print("\tInput File:\t" + user_pref['DEFAULT_INPUT_FILE'])
-    print("\tCompare File:\t" + user_pref['DEFAULT_COMPARE_FILE'])
-    print("\tOutput File:\t" + user_pref['DEFAULT_OUTPUT_FILE'])
-    print("\tBackend:\t" + user_pref['DEFAULT_BACKEND'])
-    print("\tRouting:\t" + user_pref['DEFAULT_ROUTING'])
-
-
-def run_metrics(metric_queue, circuit1, circuit2, quantum_container, backend_object):
-    """
-    Take the list of metric strings and run each metric on circuit 1 and optional circuit 2.
-    Format the results into a string to return.
-    """
-    result = ""
-    for metric_str in metric_queue:
-        metric_arg = metric_str.split()
-        arg_num = len(metric_arg) - 1
-        metric = metric_arg[0]
-        if metric == COUNT_GATE:
-            if arg_num != 1:
-                result += "ERROR: --metricCountGate requires 1 argument. Refer to --help or -h.\n"
-            else:
-                result += "Count Gate(" + metric_arg[1] + "): "
-                result += str(Metrics.metricCountGate(circuit1, metric_arg[1]))
-                result += "\n"
-        elif metric == DIFF_GATE:
-            if arg_num != 1 or circuit2 is None:
-                result += "ERROR: --metricDiffGate requires 1 argument and a compare_file specified. Refer to --help " \
-                          "or -h.\n"
-            else:
-                result += "Difference (Compare - Input) Gate Count(" + metric_arg[1] + "): "
-                result += str(Metrics.metricDiffGate(circuit1, circuit2, metric_arg[1]))
-                result += "\n"
-        elif metric == DIFF_DEPTH:
-            if circuit2 is None:
-                result += "ERROR: --metricDiffDepth requires a compare_file specified Refer to --help " \
-                          "or -h.\n"
-            else:
-                result += "Difference (Compare - Input) in Circuit Depth: "
-                result += str(Metrics.metricDiffDepth(circuit1, circuit2))
-                result += "\n"
-        elif metric == CIRCUIT_DEPTH:
-            result += "Circuit Depth: "
-            result += str(Metrics.metricCircuitDepth(circuit1))
-            result += "\n"
-        elif metric == RAW:
-            result += "Raw data:"
-            result += str(Metrics.metricRawResults(1028, circuit1, quantum_container.noise_model, backend_object))
-            result += "\n"
-
-    return result
-
-
-def handle_argv(argv, metric_queue, user_pref, ibmq_api_key, input_file, compare_file, output_file, routing_algorithm):
-    """
-    Handle the user arguments, update the metric_queue and user preferences
-    argv - list of strings passed into main
-    metric_queue - list of strings meant to be inputted metrics
-    user_pref - loaded in json struct
-    """
-
-    try:
-        opts, trailing_args = getopt.getopt(argv, "i:c:o:b:r:h",
-                                            ["input_file=",
-                                             "output_file=",
-                                             "compare_file=",
-                                             "backend=",
-                                             "routing=",
-                                             "set_API_key=",
-                                             "set_default_input_file=",
-                                             "set_default_output_file=",
-                                             "set_default_backend=",
-                                             "set_default_routing=",
-                                             "reset_all",
-                                             "show_defaults",
-                                             "metricCountGate=",
-                                             "metricDiffGate=",
-                                             "metricDiffDepth",
-                                             "metricCircuitDepth",
-                                             # "metricAccuracy",
-                                             # "metricStatevectorNorm",
-                                             # "metricExpectedStatevector",
-                                             # "metricRoutingTime",
-                                             # "metricTranspilationTime",
-                                             "metricRaw",
-                                             "help"])
-    except getopt.GetoptError:
-        print("Error reading in getopt arguments.")
-        return
-
-    for opt, arg in opts:
-        if opt in ['-i', '--input_file']:
-            input_file = arg
-        if opt in ['-c', '--compare_file']:
-            compare_file = arg
-        if opt in ['-o', '--output_file']:
-            output_file = arg
-        if opt in ['-b', '--backend']:
-            backend_str = arg
-        if opt in ['-r', '--routing']:
-            routing_algorithm = arg
-        if opt in ['-h', '--help']:
-            usage()
-        if opt == "--set_API_key":
-            user_pref['API_KEY'] = arg
-        if opt == "--set_default_input_file":
-            user_pref['DEFAULT_INPUT_FILE'] = arg
-        if opt == "--set_default_compare_file":
-            user_pref['DEFAULT_COMPARE_FILE'] = arg
-        if opt == "--set_default_output_file":
-            user_pref['DEFAULT_OUTPUT_FILE'] = arg
-        if opt == "--set_default_backend":
-            user_pref['DEFAULT_BACKEND'] = arg
-        if opt == "--set_default_routing":
-            user_pref['DEFAULT_ROUTING'] = arg
-        if opt == "--reset_all":
-            user_pref['DEFAULT_INPUT_FILE'] = ""
-            user_pref['DEFAULT_OUTPUT_FILE'] = ""
-            user_pref['DEFAULT_BACKEND'] = ""
-            user_pref['DEFAULT_ROUTING'] = ""
-        if opt == "--show_defaults":
-            show_defaults(user_pref)
-        if opt == "--metricCountGate":
-            metric_queue.append(COUNT_GATE + " " + arg)
-        if opt == "--metricDiffGate":
-            metric_queue.append(DIFF_GATE + " " + arg)
-        if opt == "--metricDiffDepth":
-            metric_queue.append(DIFF_DEPTH)
-        if opt == "--metricCircuitDepth":
-            metric_queue.append(CIRCUIT_DEPTH)
-        if opt == "--metricRaw":
-            metric_queue.append(RAW)
-    return metric_queue, user_pref, ibmq_api_key, input_file, compare_file, output_file, routing_algorithm
+# circuits to keep track of globally
+_circuit1 = None
+_circuit2 = None
 
 
 def main(argv):
@@ -248,7 +76,9 @@ def main(argv):
     output_file = user_pref['DEFAULT_OUTPUT_FILE']
     backend_str = user_pref['DEFAULT_BACKEND']
     routing_algorithm = user_pref['DEFAULT_ROUTING']
-    metric_queue = []  # list of metrics the user wants to run
+
+    # metric queue where each item is a tuple (function, args)
+    metric_queue = []
 
     metric_queue, user_pref, ibmq_api_key, input_file, compare_file, output_file, routing_algorithm = handle_argv(argv,
                                                                                                                   metric_queue,
@@ -352,49 +182,194 @@ def main(argv):
         print(out_string)
 
 
-"""
-Function - checkRequiredOptions
-Inputs:
-    put required inputs here if using getopt
+def show_defaults(user_pref):
+    """
+    Prints out the json defaults. Specific to this json.
+    """
+    print("DEFAULTS:")
+    print("\tInput File:\t" + user_pref['DEFAULT_INPUT_FILE'])
+    print("\tCompare File:\t" + user_pref['DEFAULT_COMPARE_FILE'])
+    print("\tOutput File:\t" + user_pref['DEFAULT_OUTPUT_FILE'])
+    print("\tBackend:\t" + user_pref['DEFAULT_BACKEND'])
+    print("\tRouting:\t" + user_pref['DEFAULT_ROUTING'])
 
-Outputs: True if all valid, False otherwise
 
-checkRequiredOptions performs validation on the getopt arguments to ensure that they are:
-    1. present
-    2. correct format
-Note that not all issues are checked here, only getopt-input related ones
+def handle_argv(argv, metric_queue, user_pref, ibmq_api_key, input_file, compare_file, output_file, routing_algorithm):
+    """
+    Handle the user arguments, update the metric_queue and user preferences
+    argv - list of strings passed into main
+    metric_queue - list of strings meant to be inputted metrics
+    user_pref - loaded in json struct
+    """
 
-If getopt is not used, this function can be removed
-"""
+    try:
+        opts, trailing_args = getopt.getopt(argv, "i:c:o:b:r:h",
+                                            ["input_file=",
+                                             "output_file=",
+                                             "compare_file=",
+                                             "backend=",
+                                             "routing=",
+                                             "set_API_key=",
+                                             "set_default_input_file=",
+                                             "set_default_output_file=",
+                                             "set_default_backend=",
+                                             "set_default_routing=",
+                                             "reset_all",
+                                             "show_defaults",
+                                             "metricCountGate=",
+                                             "metricRatioGate=",
+                                             "metricDiffGate=",
+                                             "metricDiffDepth",
+                                             "metricCircuitDepth",
+                                             # "metricAccuracy",
+                                             # "metricStatevectorNorm",
+                                             # "metricExpectedStatevector",
+                                             # "metricRoutingTime",
+                                             # "metricTranspilationTime",
+                                             "metricRaw",
+                                             "help"])
+    except getopt.GetoptError:
+        print("Error reading in getopt arguments.")
+        return
+
+    for opt, arg in opts:
+        if opt in ['-i', '--input_file']:
+            input_file = arg
+        if opt in ['-c', '--compare_file']:
+            compare_file = arg
+        if opt in ['-o', '--output_file']:
+            output_file = arg
+        if opt in ['-b', '--backend']:
+            backend_str = arg
+        if opt in ['-r', '--routing']:
+            routing_algorithm = arg
+        if opt in ['-h', '--help']:
+            usage()
+        if opt == "--set_API_key":
+            user_pref['API_KEY'] = arg
+        if opt == "--set_default_input_file":
+            user_pref['DEFAULT_INPUT_FILE'] = arg
+        if opt == "--set_default_compare_file":
+            user_pref['DEFAULT_COMPARE_FILE'] = arg
+        if opt == "--set_default_output_file":
+            user_pref['DEFAULT_OUTPUT_FILE'] = arg
+        if opt == "--set_default_backend":
+            user_pref['DEFAULT_BACKEND'] = arg
+        if opt == "--set_default_routing":
+            user_pref['DEFAULT_ROUTING'] = arg
+        if opt == "--reset_all":
+            user_pref['DEFAULT_INPUT_FILE'] = ""
+            user_pref['DEFAULT_OUTPUT_FILE'] = ""
+            user_pref['DEFAULT_BACKEND'] = ""
+            user_pref['DEFAULT_ROUTING'] = ""
+        if opt == "--show_defaults":
+            show_defaults(user_pref)
+        if opt == "--metricCountGate":
+            metric_queue.append(COUNT_GATE + " " + arg)
+        if opt == "--metricDiffGate":
+            # metric_queue.append(DIFF_GATE + " " + arg)
+            metric_queue.append((printMetricDiffGate, (_circuit1, _circuit2, arg)))
+        if opt == "--metricRatioGate":
+            metric_queue.append(RAT_GATE + " " + arg)
+        if opt == "--metricDiffDepth":
+            metric_queue.append(DIFF_DEPTH)
+        if opt == "--metricCircuitDepth":
+            metric_queue.append(CIRCUIT_DEPTH)
+        if opt == "--metricRaw":
+            metric_queue.append(RAW)
+    return metric_queue, user_pref, ibmq_api_key, input_file, compare_file, output_file, routing_algorithm
+
+
+def run_metrics(metric_queue, circuit1, circuit2, quantum_container, backend_object):
+    """
+    Take the list of metric strings and run each metric on circuit 1 and optional circuit 2.
+    Format the results into a string to return.
+    """
+    result = ""
+    for metric_str in metric_queue:
+        metric_arg = metric_str.split()
+        arg_num = len(metric_arg) - 1
+        metric = metric_arg[0]
+        if metric == COUNT_GATE:
+            if arg_num != 1:
+                result += "ERROR: --metricCountGate requires 1 argument. Refer to --help or -h.\n"
+            else:
+                result += "Count Gate(" + metric_arg[1] + "): "
+                result += str(Metrics.metricCountGate(circuit1, metric_arg[1]))
+                result += "\n"
+        elif metric == DIFF_GATE:
+            if arg_num != 1 or circuit2 is None:
+                result += "ERROR: --metricDiffGate requires 1 argument and a compare_file specified. Refer to --help " \
+                          "or -h.\n"
+            else:
+                result += "Difference (Compare - Input) Gate Count(" + metric_arg[1] + "): "
+                result += str(Metrics.metricDiffGate(circuit1, circuit2, metric_arg[1]))
+                result += "\n"
+        elif metric == RAT_GATE:
+            if arg_num != 1 or circuit2 is None:
+                result += "ERROR: --metricDiffGate requires 1 argument and a compare_file specified. Refer to --help " \
+                          "or -h.\n"
+            else:
+                result += "Difference (Compare/Input) Gate Count(" + metric_arg[1] + "): "
+                result += str(Metrics.metricRatioGate(circuit1, circuit2, metric_arg[1]))
+                result += "\n"
+        elif metric == DIFF_DEPTH:
+            if circuit2 is None:
+                result += "ERROR: --metricDiffDepth requires a compare_file specified Refer to --help " \
+                          "or -h.\n"
+            else:
+                result += "Difference (Compare - Input) in Circuit Depth: "
+                result += str(Metrics.metricDiffDepth(circuit1, circuit2))
+                result += "\n"
+        elif metric == CIRCUIT_DEPTH:
+            result += "Circuit Depth: "
+            result += str(Metrics.metricCircuitDepth(circuit1))
+            result += "\n"
+        elif metric == RAW:
+            result += "Raw data:"
+            result += str(Metrics.metricRawResults(1028, circuit1, quantum_container.noise_model, backend_object))
+            result += "\n"
+
+    return result
 
 
 def checkRequiredOptions():
+    """
+    Function - checkRequiredOptions
+    Inputs:
+        put required inputs here if using getopt
+
+    Outputs: True if all valid, False otherwise
+
+    checkRequiredOptions performs validation on the getopt arguments to ensure that they are:
+        1. present
+        2. correct format
+    Note that not all issues are checked here, only getopt-input related ones
+
+    If getopt is not used, this function can be removed
+    """
     return True
 
 
-"""
-Function - usage
-
-Prints the usage string for the BAROQUE getopt terminal format
-If getopt is not used, this function can be removed
-"""
-
-
 def usage():
-    print(HELP_MSG)
-
-
-"""
-Function - exitBAROQUE
-Inputs: cause_code - code denoting the cause of the exit condition
-Outputs: none, exits program
-    
-Prints the relevant error message and exits with the cause_code
-If no exit codes are needed, this function can be removed
-"""
+    """
+    Prints the usage string for the BAROQUE getopt terminal format.
+    """
+    src_dir = os.path.dirname(Path(__file__))
+    with open(os.path.join(src_dir, 'help.txt'), 'r') as f:
+        file_content = f.read()
+        print(file_content)
 
 
 def exitBAROQUE(cause_code):
+    """
+    Function - exitBAROQUE
+    Inputs: cause_code - code denoting the cause of the exit condition
+    Outputs: none, exits program
+
+    Prints the relevant error message and exits with the cause_code
+    If no exit codes are needed, this function can be removed
+    """
     print("Sample function. Put exit codes here if wanted...\n")
     print("Exiting BAROQUE code...\n")
     sys.exit(cause_code)
