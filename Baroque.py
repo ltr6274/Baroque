@@ -26,6 +26,7 @@ import shutil
 import json
 import getopt
 from pathlib import Path
+from queue import Queue
 
 # BAROQUE Imports
 import BAROQUE_Metrics as Metrics
@@ -42,9 +43,29 @@ DIFF_DEPTH = "diff_depth"
 CIRCUIT_DEPTH = "circuit_depth"
 RAW = "raw"
 
+
+class Reference:
+    """
+    Just to get circuits by reference.
+    """
+    def __init__(self, val, name):
+        self._val = val
+        self._name = name
+
+    def get_name(self):
+        return self._name
+
+    def get(self):
+        return self._val
+
+    def set(self, val, name):
+        self._val = val
+        self._name = name
+
+
 # circuits to keep track of globally
-_circuit1 = None
-_circuit2 = None
+_circuit1 = Reference(None, "")
+_circuit2 = Reference(None, "")
 
 
 def main(argv):
@@ -67,8 +88,6 @@ def main(argv):
     user_pref = json.load(f)
     f.close()
 
-    # TODO make API key not necessary ? do it on local simulator
-
     # Get all default values from json
     ibmq_api_key = user_pref['API_KEY']  # REQUIRED for hardware. Check IBMQ profile settings for it.
     input_file = user_pref['DEFAULT_INPUT_FILE']
@@ -78,7 +97,7 @@ def main(argv):
     routing_algorithm = user_pref['DEFAULT_ROUTING']
 
     # metric queue where each item is a tuple (function, args)
-    metric_queue = []
+    metric_queue = Queue()
 
     metric_queue, user_pref, ibmq_api_key, input_file, compare_file, output_file, routing_algorithm = handle_argv(argv,
                                                                                                                   metric_queue,
@@ -113,15 +132,15 @@ def main(argv):
     """
 
     # Creates QuantumCircuit from .qasm file specified by the user
-    circuit1 = qasm3.load(input_file)
+    _circuit1.set(qasm3.load(input_file), input_file)
 
     if compare_file != "":
-        circuit2 = qasm3.load(compare_file)
+        _circuit2.set(qasm3.load(compare_file), compare_file)
     else:
-        circuit2 = None
+        _circuit2.set(None,"")
 
     # Some routing algorithms require a DAG. Generate this here
-    circuit_DAG = circuit_to_dag(circuit1)
+    circuit_DAG = circuit_to_dag(_circuit1.get())
 
     """
     Transpile & Sim Section
@@ -156,7 +175,7 @@ def main(argv):
     Call run_metrics() to run all metric tests in queue
     """
 
-    results = run_metrics(metric_queue, circuit1, circuit2, quantum_container, simulation)
+    results = run_metrics(metric_queue, _circuit1.get(), _circuit2.get(), quantum_container, simulation)
 
     """
     Output section
@@ -220,6 +239,7 @@ def handle_argv(argv, metric_queue, user_pref, ibmq_api_key, input_file, compare
                                              "metricRatioGate=",
                                              "metricDiffGate=",
                                              "metricDiffDepth",
+                                             "metricRatioDepth",
                                              "metricCircuitDepth",
                                              # "metricAccuracy",
                                              # "metricStatevectorNorm",
@@ -265,72 +285,38 @@ def handle_argv(argv, metric_queue, user_pref, ibmq_api_key, input_file, compare
         if opt == "--show_defaults":
             show_defaults(user_pref)
         if opt == "--metricCountGate":
-            metric_queue.append(COUNT_GATE + " " + arg)
+            metric_queue.put((printMetricCountGate, (_circuit1, _circuit2, arg)))
         if opt == "--metricDiffGate":
-            # metric_queue.append(DIFF_GATE + " " + arg)
-            metric_queue.append((printMetricDiffGate, (_circuit1, _circuit2, arg)))
+            metric_queue.put((printMetricDiffGate, (_circuit1, _circuit2, arg)))
         if opt == "--metricRatioGate":
-            metric_queue.append(RAT_GATE + " " + arg)
+            metric_queue.put((printMetricRatioGate, (_circuit1, _circuit2, arg)))
         if opt == "--metricDiffDepth":
-            metric_queue.append(DIFF_DEPTH)
+            metric_queue.put((printMetricDiffDepth, (_circuit1, _circuit2)))
         if opt == "--metricCircuitDepth":
-            metric_queue.append(CIRCUIT_DEPTH)
+            metric_queue.put((printMetricCircuitDepth, (_circuit1, _circuit2)))
+        if opt == "--metricRatioDepth":
+            metric_queue.put((printMetricRatioDepth, (_circuit1, _circuit2)))
         if opt == "--metricRaw":
-            metric_queue.append(RAW)
+            # metric_queue.append(RAW)
+            metric_queue.put((printMetricDiffGate, (_circuit1, _circuit2, arg)))
     return metric_queue, user_pref, ibmq_api_key, input_file, compare_file, output_file, routing_algorithm
 
 
 def run_metrics(metric_queue, circuit1, circuit2, quantum_container, backend_object):
     """
-    Take the list of metric strings and run each metric on circuit 1 and optional circuit 2.
-    Format the results into a string to return.
+    Run every metric in metric queue.
+    :param metric_queue: Queue of tuple (function call, (args))
+    :param circuit1: QuantumCircuit being compared
+    :param circuit2: QuantumCircuit being compared
+    :param quantum_container: IbmqInterfaceContainer specified for this Baroque session
+    :param backend_object: simulator or hardware #TODO
+    :return: string of all output
     """
-    result = ""
-    for metric_str in metric_queue:
-        metric_arg = metric_str.split()
-        arg_num = len(metric_arg) - 1
-        metric = metric_arg[0]
-        if metric == COUNT_GATE:
-            if arg_num != 1:
-                result += "ERROR: --metricCountGate requires 1 argument. Refer to --help or -h.\n"
-            else:
-                result += "Count Gate(" + metric_arg[1] + "): "
-                result += str(Metrics.metricCountGate(circuit1, metric_arg[1]))
-                result += "\n"
-        elif metric == DIFF_GATE:
-            if arg_num != 1 or circuit2 is None:
-                result += "ERROR: --metricDiffGate requires 1 argument and a compare_file specified. Refer to --help " \
-                          "or -h.\n"
-            else:
-                result += "Difference (Compare - Input) Gate Count(" + metric_arg[1] + "): "
-                result += str(Metrics.metricDiffGate(circuit1, circuit2, metric_arg[1]))
-                result += "\n"
-        elif metric == RAT_GATE:
-            if arg_num != 1 or circuit2 is None:
-                result += "ERROR: --metricDiffGate requires 1 argument and a compare_file specified. Refer to --help " \
-                          "or -h.\n"
-            else:
-                result += "Difference (Compare/Input) Gate Count(" + metric_arg[1] + "): "
-                result += str(Metrics.metricRatioGate(circuit1, circuit2, metric_arg[1]))
-                result += "\n"
-        elif metric == DIFF_DEPTH:
-            if circuit2 is None:
-                result += "ERROR: --metricDiffDepth requires a compare_file specified Refer to --help " \
-                          "or -h.\n"
-            else:
-                result += "Difference (Compare - Input) in Circuit Depth: "
-                result += str(Metrics.metricDiffDepth(circuit1, circuit2))
-                result += "\n"
-        elif metric == CIRCUIT_DEPTH:
-            result += "Circuit Depth: "
-            result += str(Metrics.metricCircuitDepth(circuit1))
-            result += "\n"
-        elif metric == RAW:
-            result += "Raw data:"
-            result += str(Metrics.metricRawResults(1028, circuit1, quantum_container.noise_model, backend_object))
-            result += "\n"
-
-    return result
+    out = ""
+    while not metric_queue.empty():
+        current_metric, args = metric_queue.get()
+        out += current_metric(*args)
+    return out
 
 
 def checkRequiredOptions():

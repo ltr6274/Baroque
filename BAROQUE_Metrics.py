@@ -47,6 +47,7 @@ def metricDiffGate(circuit_a, circuit_b, gate_string):
     # Get gate counts for both circuits and return how many more gates exist in circuit_b than circuit_a
     return metricCountGate(circuit_b, gate_string) - metricCountGate(circuit_a, gate_string)
 
+
 def metricRatioGate(circuit_a, circuit_b, gate_string):
     """
     Function - metricRatioGate
@@ -60,7 +61,7 @@ def metricRatioGate(circuit_a, circuit_b, gate_string):
     metricA = metricCountGate(circuit_a, gate_string)
     metricB = metricCountGate(circuit_b, gate_string)
     if metricA != 0:
-        return metricCountGate(circuit_b, gate_string)/metricCountGate(circuit_a, gate_string)
+        return metricB / metricA
     else:
         return "UNDEFINED: DIVISION BY ZERO"
 
@@ -97,7 +98,25 @@ def metricDiffDepth(circuit_a, circuit_b, basis_gates_a=None, basis_gates_b=None
     """
     # Returns the difference in depth between circuit_a and circuit_b
     return metricCircuitDepth(circuit_b, basis_gates=basis_gates_b) - \
-           metricCircuitDepth(circuit_a, basis_gates=basis_gates_a)
+        metricCircuitDepth(circuit_a, basis_gates=basis_gates_a)
+
+
+def metricRatioDepth(circuit_a, circuit_b, basis_gates_a=None, basis_gates_b=None):
+    """
+    Get the ratio in circuit depths between two circuits
+    :param circuit_a: Qiskit QuantumCircuit to get depth for (denominator)
+    :param circuit_b: Qiskit QuantumCircuit to get depth for (numerator)
+    :param basis_gates_a: optional basis gates for circuit_a's depth
+    :param basis_gates_b: optional basis gates for circuit_b's depth
+    :return: circuit_b's depth / circuit_a's depth
+    """
+    # Get gate counts for both circuits and return how many more gates exist in circuit_b than circuit_a
+    metricA = metricCircuitDepth(circuit_a, basis_gates_a)
+    metricB = metricCircuitDepth(circuit_b, basis_gates_b)
+    if metricA != 0:
+        return metricB / metricA
+    else:
+        return "UNDEFINED: DIVISION BY ZERO"
 
 
 def metricCircuitDepth(circuit, basis_gates=None):
@@ -112,6 +131,8 @@ def metricCircuitDepth(circuit, basis_gates=None):
     If basis_gates is not None, the circuit will be transpiled to the basis gates. No other operations are performed
     during transpilation except the basis decomposition.
     """
+    if basis_gates == "":
+        basis_gates = None
     if basis_gates is not None:  # Basis is specified, decompose to basis gate set and return the depth
         return transpile(circuit, basis_gates=basis_gates).depth()
     # Basis not specified, return the depth of the circuit as is
