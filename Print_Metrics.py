@@ -6,6 +6,7 @@ Email: lucasr2125@gmail.com
 Description: Use as a wrapper for BAROQUE_Metrics.py to check function inputs and print results.
 Assumes that all circuit files exist (should have checked them before they get here).
 """
+import qiskit
 
 import BAROQUE_Common_Constants as Consts
 import BAROQUE_Metrics as Metrics
@@ -197,6 +198,28 @@ def printMetricRatioDepth(circuit_a, circuit_b, basis_gates_a=None, basis_gates_
                             resultNote=resultNote,
                             result=result)
     return out
+
+
+def printMetricRaw(quantum_container, circuit, backend):
+    """
+    Get the output for the metricRawResults.
+    :param quantum_container: A reference to an IbmqInterfaceContainer whose config is being run.
+    :param circuit: The circuit being run on simulator.
+    :param backend: The backend object that is being run on.
+    :return: A string of the output.
+    """
+    if circuit.get() is None:
+        return
+    container = quantum_container.get()
+    out = Metrics.metricRawResults(1024, circuit.get(), container.noise_model, backend.get())
+
+    try:
+        counts = out.get_counts()
+    except qiskit.QiskitError:
+        counts = None
+    result = "\n{name} Raw Results\n{out}\nCounts:\n{counts}\n".format(name=circuit.get_name(), out=out,
+                                                                       counts=counts if counts else "None")
+    return result
 
 
 def displayCount(circuit, gate_string):

@@ -13,6 +13,7 @@ IBM functions into simpler ones for the user.
 
 # Qiskit Imports
 import networkx as nx
+from qiskit_ibm_provider import IBMProvider
 from qiskit.providers import backend
 from qiskit.transpiler import CouplingMap
 from qiskit import IBMQ, Aer
@@ -27,8 +28,8 @@ class IbmqInterfaceContainer:
 
     The IBMQ Interface Container is a class whose objects store the provider, backend, configuration, and pro
     """
-    def __init__(self, ibmq_api_key, backend_name):
-        self.provider = self.getProviderIBMQ(ibmq_api_key)
+    def __init__(self, provider, backend_name):
+        self.provider = provider
         self.backend = self.getBackendIBMQ(backend_name, self.provider)
         self.configuration = self.getConfigurationIBMQ(self.backend)
         self.properties = self.getPropertiesIBMQ(self.backend)
@@ -41,18 +42,6 @@ class IbmqInterfaceContainer:
         else:
             self.cx_error_map = None
             self.noise_model = None
-
-    @staticmethod
-    def getProviderIBMQ(ibm_api_key):
-        """
-        Function - getProviderIBMQ
-        Inputs:
-            ibm_api_key - string containing the user's IBM "API token"
-
-        Outputs: The Qiskit Provider object obtained from IBM using the api key
-        """
-        IBMQ.save_account(ibm_api_key, overwrite=True)
-        return IBMQ.load_account()
 
     @staticmethod
     def getBackendIBMQ(backend_name, provider):

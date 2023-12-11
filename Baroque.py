@@ -17,6 +17,8 @@ from qiskit import QuantumCircuit, Aer
 from qiskit.converters import circuit_to_dag, dag_to_circuit
 from qiskit.compiler import transpile
 from qiskit import qasm3
+
+import BAROQUE_Metrics
 import HERR
 
 # Python Imports
@@ -35,20 +37,13 @@ from Print_Metrics import *
 import BAROQUE_Common_Constants as CommConst
 import BAROQUE_Herr_Wrapper as HerrWrap
 
-# metric strings
-COUNT_GATE = "count_gate"
-DIFF_GATE = "diff_gate"
-RAT_GATE = "ratio_gate"
-DIFF_DEPTH = "diff_depth"
-CIRCUIT_DEPTH = "circuit_depth"
-RAW = "raw"
-
 
 class Reference:
     """
     Just to get circuits by reference.
     """
-    def __init__(self, val, name):
+
+    def __init__(self, val, name=""):
         self._val = val
         self._name = name
 
@@ -58,14 +53,31 @@ class Reference:
     def get(self):
         return self._val
 
-    def set(self, val, name):
+    def set(self, val, name=""):
         self._val = val
         self._name = name
 
+    def isEmpty(self):
+        if self._val is None or self._val == "":
+            return True
+        return False
 
-# circuits to keep track of globally
-_circuit1 = Reference(None, "")
-_circuit2 = Reference(None, "")
+
+# References to settings to keep track of everywhere.
+_input_circuit = Reference(None)
+_compare_circuit = Reference(None)
+_ibmq_api_key = Reference(None)
+_input_file = Reference(None)
+_compare_file = Reference(None)
+_output_file = Reference(None)
+_backend_str_input = Reference(None)
+_backend_str_compare = Reference(None)
+_routing_algorithm_input = Reference(None)
+_routing_algorithm_compare = Reference(None)
+_quantum_container_input = Reference(None)
+_quantum_container_compare = Reference(None)
+_backend_input = Reference(None)
+_backend_compare = Reference(None)
 
 
 def main(argv):
@@ -89,41 +101,46 @@ def main(argv):
     f.close()
 
     # Get all default values from json
-    ibmq_api_key = user_pref['API_KEY']  # REQUIRED for hardware. Check IBMQ profile settings for it.
-    input_file = user_pref['DEFAULT_INPUT_FILE']
-    compare_file = user_pref['DEFAULT_COMPARE_FILE']
-    output_file = user_pref['DEFAULT_OUTPUT_FILE']
-    backend_str = user_pref['DEFAULT_BACKEND']
-    routing_algorithm = user_pref['DEFAULT_ROUTING']
+    _ibmq_api_key.set(user_pref['API_KEY'])  # REQUIRED for hardware. Check IBMQ profile settings for it.
+    _input_file.set(user_pref['DEFAULT_INPUT_FILE'])
+    _compare_file.set(user_pref['DEFAULT_COMPARE_FILE'])
+    _output_file.set(user_pref['DEFAULT_OUTPUT_FILE'])
+    _backend_str_input.set(user_pref['DEFAULT_BACKEND_INPUT'])
+    _backend_str_compare.set(user_pref['DEFAULT_BACKEND_COMPARE'])
+    _routing_algorithm_input.set(user_pref['DEFAULT_ROUTING_INPUT'])
+    _routing_algorithm_compare.set(user_pref['DEFAULT_ROUTING_COMPARE'])
 
     # metric queue where each item is a tuple (function, args)
     metric_queue = Queue()
 
-    metric_queue, user_pref, ibmq_api_key, input_file, compare_file, output_file, routing_algorithm = handle_argv(argv,
-                                                                                                                  metric_queue,
-                                                                                                                  user_pref,
-                                                                                                                  ibmq_api_key,
-                                                                                                                  input_file,
-                                                                                                                  compare_file,
-                                                                                                                  output_file,
-                                                                                                                  routing_algorithm)
+    metric_queue, user_pref = handle_argv(argv, metric_queue, user_pref)
 
     # Update the json file with preferences
     with open(os.path.join(pref_dir, 'user_pref.json'), 'w') as json_out:
         json.dump(user_pref, json_out)
     json_out.close()
 
-    if input_file == "" or backend_str == "":
+    compare_exists = False
+    if _compare_file.get() != "":
+        if _backend_str_compare.get() == "":
+            print("WARNING: You've specified a compare file but no compare backend. Using input backend... \n")
+            _backend_str_compare.set(_backend_str_input.get())
+        compare_exists = True
+
+    if _input_file.get() == "" or _backend_str_input.get() == "":
         return
-    if ibmq_api_key == "":
-        print("WARNING: Your IBMQ API Key has not been set.")
+    if _ibmq_api_key.get() == "":
+        print("WARNING: Your IBMQ API Key has not been set.\n")
 
     """
     IBM API Access Section
     Log in to IBM and obtain backend dating using BAROQUE's IbmqInterfaceContainer class
     """
+    provider = IBMProvider(token=_ibmq_api_key.get())  # specifically for ibm
 
-    quantum_container = IbmInterface.IbmqInterfaceContainer(ibmq_api_key, backend_str)
+    _quantum_container_input.set(IbmInterface.IbmqInterfaceContainer(provider, _backend_str_input.get()))
+    if compare_exists:
+        _quantum_container_compare.set(IbmInterface.IbmqInterfaceContainer(provider, _backend_str_compare.get()))
 
     """
     Circuit Creation Section
@@ -132,15 +149,15 @@ def main(argv):
     """
 
     # Creates QuantumCircuit from .qasm file specified by the user
-    _circuit1.set(qasm3.load(input_file), input_file)
+    _input_circuit.set(qasm3.load(_input_file.get()), _input_file.get())
 
-    if compare_file != "":
-        _circuit2.set(qasm3.load(compare_file), compare_file)
+    if _compare_file.get() != "":
+        _compare_circuit.set(qasm3.load(_compare_file.get()), _compare_file.get())
     else:
-        _circuit2.set(None,"")
+        _compare_circuit.set(None, "")
 
     # Some routing algorithms require a DAG. Generate this here
-    circuit_DAG = circuit_to_dag(_circuit1.get())
+    circuit_DAG = circuit_to_dag(_input_circuit.get())
 
     """
     Transpile & Sim Section
@@ -166,8 +183,9 @@ def main(argv):
 
     # TODO Make a runtime protocol for every backend
     # Retrieve the backend simulator information from Aer
-    provider = IBMProvider(token=ibmq_api_key)  # specifically for ibm
-    simulation = provider.get_backend(backend_str)
+
+    _backend_input.set(_quantum_container_input.get().backend)
+    _backend_compare.set(_quantum_container_compare.get().backend)
 
     """
     Analysis Section
@@ -175,7 +193,7 @@ def main(argv):
     Call run_metrics() to run all metric tests in queue
     """
 
-    results = run_metrics(metric_queue, _circuit1.get(), _circuit2.get(), quantum_container, simulation)
+    results = run_metrics(metric_queue)
 
     """
     Output section
@@ -185,13 +203,13 @@ def main(argv):
     out_string = ""
 
     # Add header information for the test's output data
-    out_string += ("Test File: " + input_file + "\n")
-    out_string += ("Device: " + backend_str + "\n\n")
+    out_string += ("Test Files: {input} {compare}\n".format(input=_input_file.get(), compare=_compare_file.get()))
+    out_string += ("Device: {backend}\n".format(backend=_backend_str_input.get()))
     out_string += results
 
-    if output_file != "":
+    if _output_file.get() != "":
         try:
-            with open(output_file, "w") as out_stream:
+            with open(_output_file.get(), "w") as out_stream:
                 out_stream.write(out_string)
             out_stream.close()
         except OSError:
@@ -209,16 +227,19 @@ def show_defaults(user_pref):
     print("\tInput File:\t" + user_pref['DEFAULT_INPUT_FILE'])
     print("\tCompare File:\t" + user_pref['DEFAULT_COMPARE_FILE'])
     print("\tOutput File:\t" + user_pref['DEFAULT_OUTPUT_FILE'])
-    print("\tBackend:\t" + user_pref['DEFAULT_BACKEND'])
-    print("\tRouting:\t" + user_pref['DEFAULT_ROUTING'])
+    print("\tInput Backend:\t" + user_pref['DEFAULT_BACKEND_INPUT'])
+    print("\tCompare Backend:\t" + user_pref['DEFAULT_BACKEND_COMPARE'])
+    print("\tInput Routing:\t" + user_pref['DEFAULT_ROUTING_INPUT'])
+    print("\tCompare Routing:\t" + user_pref['DEFAULT_ROUTING_COMPARE'])
 
 
-def handle_argv(argv, metric_queue, user_pref, ibmq_api_key, input_file, compare_file, output_file, routing_algorithm):
+def handle_argv(argv, metric_queue, user_pref):
     """
-    Handle the user arguments, update the metric_queue and user preferences
-    argv - list of strings passed into main
-    metric_queue - list of strings meant to be inputted metrics
-    user_pref - loaded in json struct
+    Take in the arguments, update the metrics queue and user preferences as necessary.
+    :param argv: The arguments inputted by the user, starting after the program title
+    :param metric_queue: Queue of metrics -> (printMetricFunctionName, (args for that func))
+    :param user_pref: Loaded in json struct we can update.
+    :return: The updated metric_queue and updated user preferences.
     """
 
     try:
@@ -227,12 +248,18 @@ def handle_argv(argv, metric_queue, user_pref, ibmq_api_key, input_file, compare
                                              "output_file=",
                                              "compare_file=",
                                              "backend=",
+                                             "backend_input=",
+                                             "backend_compare=",
                                              "routing=",
+                                             "routing_input=",
+                                             "routing_compare=",
                                              "set_API_key=",
                                              "set_default_input_file=",
                                              "set_default_output_file=",
-                                             "set_default_backend=",
-                                             "set_default_routing=",
+                                             "set_default_backend_input=",
+                                             "set_default_backend_compare=",
+                                             "set_default_routing_input=",
+                                             "set_default_routing_compare=",
                                              "reset_all",
                                              "show_defaults",
                                              "metricCountGate=",
@@ -254,15 +281,19 @@ def handle_argv(argv, metric_queue, user_pref, ibmq_api_key, input_file, compare
 
     for opt, arg in opts:
         if opt in ['-i', '--input_file']:
-            input_file = arg
+            _input_file.set(arg)
         if opt in ['-c', '--compare_file']:
-            compare_file = arg
+            _compare_file.set(arg)
         if opt in ['-o', '--output_file']:
-            output_file = arg
-        if opt in ['-b', '--backend']:
-            backend_str = arg
-        if opt in ['-r', '--routing']:
-            routing_algorithm = arg
+            _output_file.set(arg)
+        if opt in ['-b', '--backend_input', '--backend']:
+            _backend_str_input.set(arg)
+        if opt in ['--backend_compare']:
+            _backend_str_compare.set(arg)
+        if opt in ['-r', '--routing_input', '--routing']:
+            _routing_algorithm_input.set(arg)
+        if opt in ['--routing_compare']:
+            _routing_algorithm_compare.set(arg)
         if opt in ['-h', '--help']:
             usage()
         if opt == "--set_API_key":
@@ -273,43 +304,45 @@ def handle_argv(argv, metric_queue, user_pref, ibmq_api_key, input_file, compare
             user_pref['DEFAULT_COMPARE_FILE'] = arg
         if opt == "--set_default_output_file":
             user_pref['DEFAULT_OUTPUT_FILE'] = arg
-        if opt == "--set_default_backend":
-            user_pref['DEFAULT_BACKEND'] = arg
-        if opt == "--set_default_routing":
-            user_pref['DEFAULT_ROUTING'] = arg
+        if opt == "--set_default_backend_input":
+            user_pref['DEFAULT_BACKEND_INPUT'] = arg
+        if opt == "--set_default_backend_compare":
+            user_pref['DEFAULT_BACKEND_COMPARE'] = arg
+        if opt == "--set_default_routing_input":
+            user_pref['DEFAULT_ROUTING_INPUT'] = arg
+        if opt == "--set_default_routing_compare":
+            user_pref['DEFAULT_ROUTING_COMPARE'] = arg
         if opt == "--reset_all":
             user_pref['DEFAULT_INPUT_FILE'] = ""
             user_pref['DEFAULT_OUTPUT_FILE'] = ""
-            user_pref['DEFAULT_BACKEND'] = ""
-            user_pref['DEFAULT_ROUTING'] = ""
+            user_pref['DEFAULT_BACKEND_INPUT'] = ""
+            user_pref['DEFAULT_BACKEND_COMPARE'] = ""
+            user_pref['DEFAULT_ROUTING_INPUT'] = ""
+            user_pref['DEFAULT_ROUTING_COMPARE'] = ""
         if opt == "--show_defaults":
             show_defaults(user_pref)
         if opt == "--metricCountGate":
-            metric_queue.put((printMetricCountGate, (_circuit1, _circuit2, arg)))
+            metric_queue.put((printMetricCountGate, (_input_circuit, _compare_circuit, arg)))
         if opt == "--metricDiffGate":
-            metric_queue.put((printMetricDiffGate, (_circuit1, _circuit2, arg)))
+            metric_queue.put((printMetricDiffGate, (_input_circuit, _compare_circuit, arg)))
         if opt == "--metricRatioGate":
-            metric_queue.put((printMetricRatioGate, (_circuit1, _circuit2, arg)))
+            metric_queue.put((printMetricRatioGate, (_input_circuit, _compare_circuit, arg)))
         if opt == "--metricDiffDepth":
-            metric_queue.put((printMetricDiffDepth, (_circuit1, _circuit2)))
+            metric_queue.put((printMetricDiffDepth, (_input_circuit, _compare_circuit)))
         if opt == "--metricCircuitDepth":
-            metric_queue.put((printMetricCircuitDepth, (_circuit1, _circuit2)))
+            metric_queue.put((printMetricCircuitDepth, (_input_circuit, _compare_circuit)))
         if opt == "--metricRatioDepth":
-            metric_queue.put((printMetricRatioDepth, (_circuit1, _circuit2)))
+            metric_queue.put((printMetricRatioDepth, (_input_circuit, _compare_circuit)))
         if opt == "--metricRaw":
-            # metric_queue.append(RAW)
-            metric_queue.put((printMetricDiffGate, (_circuit1, _circuit2, arg)))
-    return metric_queue, user_pref, ibmq_api_key, input_file, compare_file, output_file, routing_algorithm
+            metric_queue.put((printMetricRaw, (_quantum_container_input, _input_circuit, _backend_input)))
+            metric_queue.put((printMetricRaw, (_quantum_container_compare, _compare_circuit, _backend_compare)))
+    return metric_queue, user_pref
 
 
-def run_metrics(metric_queue, circuit1, circuit2, quantum_container, backend_object):
+def run_metrics(metric_queue):
     """
     Run every metric in metric queue.
     :param metric_queue: Queue of tuple (function call, (args))
-    :param circuit1: QuantumCircuit being compared
-    :param circuit2: QuantumCircuit being compared
-    :param quantum_container: IbmqInterfaceContainer specified for this Baroque session
-    :param backend_object: simulator or hardware #TODO
     :return: string of all output
     """
     out = ""
