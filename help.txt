@@ -11,15 +11,25 @@ Here's how you use it:
 
 Additional Commands:
         You can use any of these commands after the 'Baroque' keyword:
-        --set_default_<something> <value>
+        --input_file=<filename>
+        --output_file=<filename>
+        --compare_file=<filename>
+        --backend=<backend string> OR --backend_input=<backend_string>
+                These two commands do the same thing as the short -b command.
+        --backend_compare=<backend string>
+                Used to set a separate backend for the compare circuit.
+        --set_default_<something>=<value>
                 This is how you set default values.
-                Where <something> is replaced by input_file, compare_file, output_file, backend, or routing.
+                Where <something> is replaced by:
+                    input_file, compare_file, output_file, backend_input, backend_compare, routing_input, routing_compare
         --show_defaults
                 This will print all defaults you have set.
         --reset_all
                 This will reset all default values you have set.
-        --set_API_key <key>
+        --set_API_key=<key>
                 Use this to set the API key you will use for using IBMQ simulators and machines.
+        --available_backends
+                Use this to see all available backends to run experiments on.
 
 Available Metrics:
         --metricCountGate=<gate string>

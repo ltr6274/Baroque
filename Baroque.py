@@ -326,6 +326,7 @@ def handle_argv(argv, metric_queue, user_pref):
                                              "routing_compare=",
                                              "set_API_key=",
                                              "set_default_input_file=",
+                                             "set_default_compare_file",
                                              "set_default_output_file=",
                                              "set_default_backend_input=",
                                              "set_default_backend_compare=",
