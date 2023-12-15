@@ -12,7 +12,7 @@ edit and tailor it to their needs
 
 # Qiskit Imports
 import networkx as nx
-from qiskit_aer import AerSimulator
+from qiskit_aer import AerSimulator, AerProvider
 from qiskit_ibm_provider import IBMProvider
 import qiskit_aer
 from qiskit import QuantumCircuit, Aer
@@ -151,6 +151,7 @@ def main(argv):
     aer_sim = AerSimulator()
     backend_list = [backend.name for backend in provider.backends()]
     backend_list += aer_sim.available_methods()
+    backend_list += [backend.name for backend in AerProvider().backends() if not isinstance(backend, AerSimulator)]
 
     if _show_backends.get():
         show_available_backends(provider, aer_sim)
@@ -210,7 +211,8 @@ def main(argv):
     # Retrieve the backend simulator information from Aer
 
     _backend_input.set(_quantum_container_input.get().backend)
-    _backend_compare.set(_quantum_container_compare.get().backend)
+    if compare_exists:
+        _backend_compare.set(_quantum_container_compare.get().backend)
 
     """
     Analysis Section
@@ -252,8 +254,8 @@ def no_valid_backend_check(available, backend1, backend2):
     :param backend2: Second backend name
     :return: False if either backend1 or backend2 aren't available.
     """
-    one_is_available = False
-    two_is_available = False
+    one_is_available = False if backend1 is not None and backend1 != "" else True
+    two_is_available = False if backend2 is not None and backend2 != "" else True
     all_available = []
     for name in available:
         all_available += [name]

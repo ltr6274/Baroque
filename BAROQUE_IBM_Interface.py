@@ -18,6 +18,7 @@ from qiskit.providers import backend
 from qiskit.transpiler import CouplingMap
 from qiskit import IBMQ, Aer
 from qiskit_aer.noise import NoiseModel
+from qiskit_aer import AerSimulator, QasmSimulator, StatevectorSimulator, UnitarySimulator
 
 import BAROQUE_Common_Constants as CommConsts
 from BAROQUE_Common_Constants import *
@@ -38,9 +39,7 @@ class IbmqInterfaceContainer:
         self.coupling_list = self.getCouplingListIBMQ(self.configuration)
         self.coupling_map = self.getCouplingMapIBMQ(self.configuration)
         self.basis_gates = self.getBasisGatesIBMQ(self.configuration)
-        self.noise_model = self.getBackendNoiseModelIBMQ(self.backend) \
-            if backend_name in AER_SIM_METHODS or backend_name == AER_QASM_SIM \
-            else None
+        self.noise_model = None
         self.cx_error_map = self.extractCxErrorMap(self.configuration, self.properties, self.coupling_list) \
             if backend_name in hardware else None
 
@@ -54,6 +53,14 @@ class IbmqInterfaceContainer:
 
         Outputs: The Qiskit Backend object corresponding to the user specified backend in backend_name
         """
+        if backend_name in AER_SIM_METHODS:
+            return AerSimulator(method=backend_name)
+        if backend_name == "qasm_simulator":
+            return QasmSimulator()
+        if backend_name == "statevector_simulator":
+            return StatevectorSimulator()
+        if backend_name == "unitary_simulator":
+            return UnitarySimulator()
         return provider.get_backend(backend_name)
 
     @staticmethod

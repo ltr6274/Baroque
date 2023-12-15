@@ -209,8 +209,10 @@ def printMetricRaw(quantum_container, circuit, backend):
     :return: A string of the output.
     """
     if circuit.get() is None:
-        return
+        return ""
     container = quantum_container.get()
+    if container is None:
+        return ""
     out = Metrics.metricRawResults(1024, circuit.get(), container.noise_model, backend.get())
 
     try:
