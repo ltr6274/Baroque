@@ -204,23 +204,43 @@ def printMetricRaw(quantum_container, circuit, backend):
     """
     Get the output for the metricRawResults.
     :param quantum_container: A reference to an IbmqInterfaceContainer whose config is being run.
-    :param circuit: The circuit being run on simulator.
-    :param backend: The backend object that is being run on.
+    :param circuit: The reference to a circuit being run on simulator.
+    :param backend: The reference to a backend object that is being run on.
     :return: A string of the output.
     """
     if circuit.get() is None:
         return ""
+
     container = quantum_container.get()
     if container is None:
         return ""
+
+    val_type = "Counts"
+    uni = False
+
+    if backend.get().name == "unitary_simulator":
+        uni = True
+        temp_circ = circuit.get()
+        ops = temp_circ.count_ops()
+        if 'measure' in ops.keys():
+            temp_circ.remove_final_measurements()
+        temp_circ = qiskit.transpile(temp_circ, backend.get())
+        temp_name = circuit.get_name()
+        circuit.set(temp_circ, temp_name)
+        val_type = "Unitary"
+
     out = Metrics.metricRawResults(1024, circuit.get(), container.noise_model, backend.get())
 
     try:
-        counts = out.get_counts()
+        if not uni:
+            res_val = out.get_counts()
+        else:
+            res_val = out.get_unitary()
     except qiskit.QiskitError:
-        counts = None
-    result = "\n{name} Raw Results\n{out}\nCounts:\n{counts}\n".format(name=circuit.get_name(), out=out,
-                                                                       counts=counts if counts else "None")
+        res_val = None
+    result = "\n{name} Raw Results\n{out}\n{val_type}:\n{val}\n".format(name=circuit.get_name(), out=out,
+                                                                        val_type=val_type,
+                                                                        val=res_val if res_val else "None")
     return result
 
 
