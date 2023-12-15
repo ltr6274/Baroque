@@ -24,12 +24,16 @@ Additional Commands:
 Available Metrics:
         --metricCountGate=<gate string>
                 Count the occurrences of a specific gate.
+        --metricRatioGate=<gate string>
+                Get the ratio of gate occurrences between two circuits.
         --metricDiffGate=<gate string>
                 Find the difference in occurrences of a specific between two circuits.
-        --metricDiffDepth
-                Find the difference in depth between two circuits.
         --metricCircuitDepth
                 Find the depth of the circuit.
+        --metricRatioDepth
+                Get the ratio of depths between two circuits.
+        --metricDiffDepth
+                Find the difference in depth between two circuits.
         --metricRaw
                 Display raw data about the simulation.
 

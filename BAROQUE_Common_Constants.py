@@ -46,10 +46,16 @@ QUITO_SYS_STR = "ibmq_quito"
 BELEM_SYS_STR = "ibmq_belem"
 LIMA_SYS_STR = "ibmq_lima"
 
-hardware = {WASHINGTON_SYS_STR, KYIV_SYS_STR, ITHACA_SYS_STR, KOLKATA_SYS_STR, MONTREAL_SYS_STR, MUMBAI_SYS_STR, CAIRO_SYS_STR,
-            AUCKLAND_SYS_STR, HANOI_SYS_STR,GENEVA_SYS_STR, TORONTO_SYS_STR, PEEKSKILL_SYS_STR, GUADALUPE_SYS_STR,
+hardware = {WASHINGTON_SYS_STR, KYIV_SYS_STR, ITHACA_SYS_STR, KOLKATA_SYS_STR, MONTREAL_SYS_STR, MUMBAI_SYS_STR,
+            CAIRO_SYS_STR,
+            AUCKLAND_SYS_STR, HANOI_SYS_STR, GENEVA_SYS_STR, TORONTO_SYS_STR, PEEKSKILL_SYS_STR, GUADALUPE_SYS_STR,
             PERTH_SYS_STR, LAGOS_SYS_STR, NAIROBI_SYS_STR, OSLO_SYS_STR, JAKARTA_SYS_STR, MANILA_SYS_STR,
             QUITO_SYS_STR, BELEM_SYS_STR, LIMA_SYS_STR}
+
+AER_SIM_METHODS = {"automatic", "statevector", "density_matrix", "stabilizer", "matrix_product_state",
+                   "extended_stabilizer", "unitary", "superop"}
+
+AER_LEGACY = {"qasm_simulator", "statevector_simulator", "unitary_simulator"}
 
 # IBM Quantum Simulator Backend Strings
 STABILIZER_SIM = "simulator_stabilizer"
@@ -73,7 +79,8 @@ RESET_GATE = "reset"
 MEASURE_GATE = "measure"
 HADAMARD = "h"
 
-valid_gate_strings = {CONTROL_NOT_GATE, CONTROL_X_GATE, SQRT_X_GATE, IDENTITY_GATE, ROTATION_Z_GATE,PAULI_X_GATE, RESET_GATE, MEASURE_GATE, HADAMARD}
+valid_gate_strings = {CONTROL_NOT_GATE, CONTROL_X_GATE, SQRT_X_GATE, IDENTITY_GATE, ROTATION_Z_GATE, PAULI_X_GATE,
+                      RESET_GATE, MEASURE_GATE, HADAMARD}
 
 # Routing Methods
 ROUTING_BASIC = "basic"

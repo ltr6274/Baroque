@@ -20,6 +20,7 @@ from qiskit import IBMQ, Aer
 from qiskit_aer.noise import NoiseModel
 
 import BAROQUE_Common_Constants as CommConsts
+from BAROQUE_Common_Constants import *
 
 
 class IbmqInterfaceContainer:
@@ -28,6 +29,7 @@ class IbmqInterfaceContainer:
 
     The IBMQ Interface Container is a class whose objects store the provider, backend, configuration, and pro
     """
+
     def __init__(self, provider, backend_name):
         self.provider = provider
         self.backend = self.getBackendIBMQ(backend_name, self.provider)
@@ -36,12 +38,11 @@ class IbmqInterfaceContainer:
         self.coupling_list = self.getCouplingListIBMQ(self.configuration)
         self.coupling_map = self.getCouplingMapIBMQ(self.configuration)
         self.basis_gates = self.getBasisGatesIBMQ(self.configuration)
-        if backend_name in CommConsts.hardware:
-            self.cx_error_map = self.extractCxErrorMap(self.configuration, self.properties, self.coupling_list)
-            self.noise_model = self.getBackendNoiseModelIBMQ(self.backend)
-        else:
-            self.cx_error_map = None
-            self.noise_model = None
+        self.noise_model = self.getBackendNoiseModelIBMQ(self.backend) \
+            if backend_name in AER_SIM_METHODS or backend_name == AER_QASM_SIM \
+            else None
+        self.cx_error_map = self.extractCxErrorMap(self.configuration, self.properties, self.coupling_list) \
+            if backend_name in hardware else None
 
     @staticmethod
     def getBackendIBMQ(backend_name, provider):

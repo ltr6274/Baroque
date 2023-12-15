@@ -12,7 +12,9 @@ edit and tailor it to their needs
 
 # Qiskit Imports
 import networkx as nx
+from qiskit_aer import AerSimulator
 from qiskit_ibm_provider import IBMProvider
+import qiskit_aer
 from qiskit import QuantumCircuit, Aer
 from qiskit.converters import circuit_to_dag, dag_to_circuit
 from qiskit.compiler import transpile
@@ -78,6 +80,7 @@ _quantum_container_input = Reference(None)
 _quantum_container_compare = Reference(None)
 _backend_input = Reference(None)
 _backend_compare = Reference(None)
+_show_backends = Reference(False)
 
 
 def main(argv):
@@ -127,16 +130,38 @@ def main(argv):
             _backend_str_compare.set(_backend_str_input.get())
         compare_exists = True
 
-    if _input_file.get() == "" or _backend_str_input.get() == "":
-        return
+    # if there is no input or backend then no need to continue past show_backends
+    cont_metrics = True
+
+    if _input_file.get() == "":
+        print("WARNING: No input file has been set.\n")
+        cont_metrics = False
+    if _backend_str_input.get() == "":
+        print("WARNING: No backend has been set.\n")
+        cont_metrics = False
     if _ibmq_api_key.get() == "":
-        print("WARNING: Your IBMQ API Key has not been set.\n")
+        print("ERROR: Your IBMQ API Key has not been set.\n")
+        return
 
     """
     IBM API Access Section
     Log in to IBM and obtain backend dating using BAROQUE's IbmqInterfaceContainer class
     """
     provider = IBMProvider(token=_ibmq_api_key.get())  # specifically for ibm
+    aer_sim = AerSimulator()
+    backend_list = [backend.name for backend in provider.backends()]
+    backend_list += aer_sim.available_methods()
+
+    if _show_backends.get():
+        show_available_backends(provider, aer_sim)
+        _show_backends.set(False)
+
+    if not cont_metrics:
+        return
+
+    if not no_valid_backend_check(backend_list, _backend_str_compare.get(), _backend_str_input.get()):
+        show_available_backends(provider, aer_sim)
+        return
 
     _quantum_container_input.set(IbmInterface.IbmqInterfaceContainer(provider, _backend_str_input.get()))
     if compare_exists:
@@ -219,6 +244,50 @@ def main(argv):
         print(out_string)
 
 
+def no_valid_backend_check(available, backend1, backend2):
+    """
+    Check if backend1 or backend2 are in available backends, if not then print an error message and return false.
+    :param available: List of IBMQ backend names as well as AerSimulator method names.
+    :param backend1: First backend name
+    :param backend2: Second backend name
+    :return: False if either backend1 or backend2 aren't available.
+    """
+    one_is_available = False
+    two_is_available = False
+    all_available = []
+    for name in available:
+        all_available += [name]
+        if backend1 == name:
+            one_is_available = True
+        if backend2 == name:
+            two_is_available = True
+    if not (one_is_available and two_is_available):
+        print("ERROR: One or both of your selected backends are not available on the active IBMQ API token.\n")
+        return False
+    return True
+
+
+def show_available_backends(provider, aer_sim):
+    """
+    Print a list of available backends to use.
+    :param provider: IBMProvider enabled from an APIKey
+    :param aer_sim: AerSimulator to get methods from.
+    """
+    print("Available IBMQ backends:")
+    ibmq_backends = provider.backends()
+    for backend in ibmq_backends:
+        print("\t{backend}".format(backend=backend.name))
+    print("Available AerSimulator Methods:")
+    aer_backends = aer_sim.available_methods()
+    for method in aer_backends:
+        print("\t{backend}".format(backend=method))
+    print("Available Legacy Simulator Backends:")
+    for backend in Aer.backends():
+        if not isinstance(backend, AerSimulator):
+            print("\t{legacy}".format(legacy=backend.name))
+    print()
+
+
 def show_defaults(user_pref):
     """
     Prints out the json defaults. Specific to this json.
@@ -274,6 +343,7 @@ def handle_argv(argv, metric_queue, user_pref):
                                              # "metricRoutingTime",
                                              # "metricTranspilationTime",
                                              "metricRaw",
+                                             "available_backends",
                                              "help"])
     except getopt.GetoptError:
         print("Error reading in getopt arguments.")
@@ -336,6 +406,8 @@ def handle_argv(argv, metric_queue, user_pref):
         if opt == "--metricRaw":
             metric_queue.put((printMetricRaw, (_quantum_container_input, _input_circuit, _backend_input)))
             metric_queue.put((printMetricRaw, (_quantum_container_compare, _compare_circuit, _backend_compare)))
+        if opt == "--available_backends":
+            _show_backends.set(True)
     return metric_queue, user_pref
 
 
